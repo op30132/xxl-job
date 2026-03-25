@@ -1,10 +1,12 @@
 package com.xxl.job.core.util;
 
 import com.xxl.job.core.context.XxlJobHelper;
+import com.xxl.job.core.log.XxlJobFileAppender;
 import com.xxl.tool.core.ArrayTool;
 import com.xxl.tool.io.FileTool;
 import com.xxl.tool.io.IOTool;
 
+import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -28,8 +30,15 @@ public class ScriptUtil {
      * @throws IOException exception
      */
     public static void markScriptFile(String scriptFileName, String scriptContent) throws IOException {
+        // path traversal check: ensure scriptFileName is within glueSrcPath
+        String canonicalScriptFile = new File(scriptFileName).getCanonicalPath();
+        String canonicalGlueSrcBase = new File(XxlJobFileAppender.getGlueSrcPath()).getCanonicalPath();
+        if (!canonicalScriptFile.startsWith(canonicalGlueSrcBase + File.separator)) {
+            throw new IOException("Invalid scriptFileName path (path traversal detected): " + scriptFileName);
+        }
+
         // make file: filePath/gluesource/666-123456789.py
-        FileTool.writeString(scriptFileName, scriptContent);
+        FileTool.writeString(canonicalScriptFile, scriptContent);
 
         /*FileOutputStream fileOutputStream = null;
         try {
@@ -56,6 +65,22 @@ public class ScriptUtil {
      * @throws IOException exception
      */
     public static int execToFile(String command, String scriptFile, String logFile, String... params) throws IOException {
+
+        // path traversal check: ensure logFile is within logBasePath
+        String canonicalLogFile = new File(logFile).getCanonicalPath();
+        String canonicalLogBase = new File(XxlJobFileAppender.getLogPath()).getCanonicalPath();
+        if (!canonicalLogFile.startsWith(canonicalLogBase + File.separator)) {
+            throw new IOException("Invalid logFile path (path traversal detected): " + logFile);
+        }
+        logFile = canonicalLogFile;
+
+        // path traversal check: ensure scriptFile is within glueSrcPath
+        String canonicalScriptFile = new File(scriptFile).getCanonicalPath();
+        String canonicalGlueSrcBase = new File(XxlJobFileAppender.getGlueSrcPath()).getCanonicalPath();
+        if (!canonicalScriptFile.startsWith(canonicalGlueSrcBase + File.separator)) {
+            throw new IOException("Invalid scriptFile path (path traversal detected): " + scriptFile);
+        }
+        scriptFile = canonicalScriptFile;
 
         FileOutputStream fileOutputStream = null;
         Thread inputThread = null;

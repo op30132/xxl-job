@@ -41,8 +41,8 @@ public class XxlJobFileAppender {
 		if (StringTool.isNotBlank(logPath)) {
 			logBasePath = logPath.trim();
 		}
-		// mk base dir
-		File logPathDir = new File(logBasePath);
+		// mk base dir: canonicalize to prevent path traversal via ".." or symlinks
+		File logPathDir = new File(logBasePath).getCanonicalFile();
         FileTool.createDirectories(logPathDir);
 		logBasePath = logPathDir.getPath();
 
@@ -118,6 +118,19 @@ public class XxlJobFileAppender {
 		if (StringTool.isBlank(logFileName)) {
             return new LogResult(fromLineNum, 0, "readLog fail, logFile not found", true);
 		}
+
+		// path traversal check: ensure logFileName is within logBasePath
+		try {
+			String canonicalLogFile = new File(logFileName).getCanonicalPath();
+			String canonicalBase = new File(logBasePath).getCanonicalPath();
+			if (!canonicalLogFile.startsWith(canonicalBase + File.separator)) {
+				return new LogResult(fromLineNum, 0, "readLog fail, invalid logFile path", true);
+			}
+			logFileName = canonicalLogFile;
+		} catch (IOException e) {
+			return new LogResult(fromLineNum, 0, "readLog fail, invalid logFile path", true);
+		}
+
 		if (!FileTool.exists(logFileName)) {
             return new LogResult(fromLineNum, 0, "readLog fail, logFile not exists", true);
 		}
