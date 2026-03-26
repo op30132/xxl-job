@@ -61,6 +61,25 @@ public class XxlJobFileAppender {
 		return callbackLogPath;
 	}
 
+	private static boolean isSafePath(String fileName) {
+        if (StringTool.isBlank(fileName)) {
+            return false;
+        }
+        try {
+            File file = new File(fileName);
+            File baseDir = new File(logBasePath);
+            
+            // 取得規範化路徑 (排除 ../ 等干擾)
+            String canonicalPath = file.getCanonicalPath();
+            String canonicalBase = baseDir.getCanonicalPath();
+            
+            // 檢查最終路徑是否以預期的根路徑開頭
+            return canonicalPath.startsWith(canonicalBase);
+        } catch (IOException e) {
+            return false;
+        }
+    }
+
 	/**
 	 * log filename, like "logPath/yyyy-MM-dd/9999.log"
 	 *
@@ -91,19 +110,18 @@ public class XxlJobFileAppender {
 	 * @param appendLog		append log
 	 */
 	public static void appendLog(String logFileName, String appendLog) {
+        // 修正：加入路徑合法性校驗
+        if (StringTool.isBlank(logFileName) || !isSafePath(logFileName) || appendLog == null) {
+            logger.warn("XxlJobFileAppender appendLog illegal path: {}", logFileName);
+            return;
+        }
 
-		// valid
-		if (StringTool.isBlank(logFileName) || appendLog == null) {
-			return;
-		}
-
-		// append log
         try {
             FileTool.writeLines(logFileName, List.of(appendLog), true);
         } catch (IOException e) {
-            throw new RuntimeException("XxlJobFileAppender appendLog error, logFileName:"+ logFileName, e);
+            throw new RuntimeException("XxlJobFileAppender appendLog error", e);
         }
-	}
+    }
 
 	/**
 	 * support read log-file
@@ -113,14 +131,13 @@ public class XxlJobFileAppender {
 	 * @return log content
 	 */
 	public static LogResult readLog(String logFileName, final int fromLineNum){
-
-		// valid
-		if (StringTool.isBlank(logFileName)) {
-            return new LogResult(fromLineNum, 0, "readLog fail, logFile not found", true);
-		}
-		if (!FileTool.exists(logFileName)) {
+		if (StringTool.isBlank(logFileName) || !isSafePath(logFileName)) {
+            return new LogResult(fromLineNum, 0, "readLog fail, illegal path", true);
+        }
+        
+        if (!FileTool.exists(logFileName)) {
             return new LogResult(fromLineNum, 0, "readLog fail, logFile not exists", true);
-		}
+        }
 
 		// read data
         StringBuilder logContentBuilder = new StringBuilder();

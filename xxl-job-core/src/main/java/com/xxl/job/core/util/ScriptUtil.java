@@ -1,10 +1,12 @@
 package com.xxl.job.core.util;
 
 import com.xxl.job.core.context.XxlJobHelper;
+import com.xxl.job.core.log.XxlJobFileAppender;
 import com.xxl.tool.core.ArrayTool;
 import com.xxl.tool.io.FileTool;
 import com.xxl.tool.io.IOTool;
 
+import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -19,7 +21,17 @@ import java.util.List;
  * Created by xuxueli on 17/2/25.
  */
 public class ScriptUtil {
+    private static void validatePath(String path) throws IOException {
+        if (path == null) return;
+        File file = new File(path);
+        // 這裡建議與 XxlJobFileAppender 的根路徑連動，或定義一個合法的根目錄
+        String base = XxlJobFileAppender.getLogPath();
+        File baseDir = new File(base);
 
+        if (!file.getCanonicalPath().startsWith(baseDir.getCanonicalPath())) {
+            throw new IOException("Security Alert: Path traversal attempt detected: " + path);
+        }
+    }
     /**
      * make script file
      *
@@ -29,6 +41,7 @@ public class ScriptUtil {
      */
     public static void markScriptFile(String scriptFileName, String scriptContent) throws IOException {
         // make file: filePath/gluesource/666-123456789.py
+        validatePath(scriptFileName);
         FileTool.writeString(scriptFileName, scriptContent);
 
         /*FileOutputStream fileOutputStream = null;
@@ -56,12 +69,14 @@ public class ScriptUtil {
      * @throws IOException exception
      */
     public static int execToFile(String command, String scriptFile, String logFile, String... params) throws IOException {
-
+        validatePath(scriptFile);
+        validatePath(logFile);
         FileOutputStream fileOutputStream = null;
         Thread inputThread = null;
         Thread errorThread = null;
         Process process = null;
         try {
+            
             // 1、build file OutputStream
             fileOutputStream = new FileOutputStream(logFile, true);
 
