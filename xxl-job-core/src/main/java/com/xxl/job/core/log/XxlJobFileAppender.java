@@ -42,14 +42,14 @@ public class XxlJobFileAppender {
 			logBasePath = logPath.trim();
 		}
 		// mk base dir
-		File logPathDir = new File(logBasePath);
-        FileTool.createDirectories(logPathDir);
-		logBasePath = logPathDir.getPath();
+		// File logPathDir = new File(logBasePath);
+        // FileTool.createDirectories(logPathDir);
+		// logBasePath = logPathDir.getPath();
 
 		// mk glue dir
-		File glueBaseDir = new File(logPathDir, "gluesource");
-        FileTool.createDirectories(glueBaseDir);
-		glueSrcPath = glueBaseDir.getPath();
+		// File glueBaseDir = new File(logPathDir, "gluesource");
+        // FileTool.createDirectories(glueBaseDir);
+		// glueSrcPath = glueBaseDir.getPath();
 	}
 	public static String getLogPath() {
 		return logBasePath;

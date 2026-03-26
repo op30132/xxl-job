@@ -63,7 +63,7 @@ public class ScriptUtil {
         Process process = null;
         try {
             // 1、build file OutputStream
-            fileOutputStream = new FileOutputStream(logFile, true);
+            // fileOutputStream = new FileOutputStream(logFile, true);
 
             // 2、build command
             List<String> cmdarray = new ArrayList<>();
