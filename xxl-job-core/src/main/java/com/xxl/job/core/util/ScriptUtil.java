@@ -1,12 +1,16 @@
 package com.xxl.job.core.util;
 
 import com.xxl.job.core.context.XxlJobHelper;
+import com.xxl.job.core.log.XxlJobFileAppender;
 import com.xxl.tool.core.ArrayTool;
-import com.xxl.tool.io.FileTool;
 import com.xxl.tool.io.IOTool;
 
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -29,7 +33,10 @@ public class ScriptUtil {
      */
     public static void markScriptFile(String scriptFileName, String scriptContent) throws IOException {
         // make file: filePath/gluesource/666-123456789.py
-        FileTool.writeString(scriptFileName, scriptContent);
+        String safeScriptFileName = XxlJobFileAppender.resolveGlueSourceFilePath(scriptFileName);
+        Path safeScriptPath = Paths.get(safeScriptFileName);
+        Files.createDirectories(safeScriptPath.getParent());
+        Files.writeString(safeScriptPath, scriptContent, StandardCharsets.UTF_8);
 
         /*FileOutputStream fileOutputStream = null;
         try {
@@ -63,12 +70,14 @@ public class ScriptUtil {
         Process process = null;
         try {
             // 1、build file OutputStream
-            fileOutputStream = new FileOutputStream(logFile, true);
+            String safeLogFile = XxlJobFileAppender.resolveLogFilePath(logFile);
+            String safeScriptFile = XxlJobFileAppender.resolveGlueSourceFilePath(scriptFile);
+            fileOutputStream = new FileOutputStream(safeLogFile, true);
 
             // 2、build command
             List<String> cmdarray = new ArrayList<>();
             cmdarray.add(command);
-            cmdarray.add(scriptFile);
+            cmdarray.add(safeScriptFile);
             if (ArrayTool.isNotEmpty(params)) {
                 for (String param:params) {
                     cmdarray.add(param);

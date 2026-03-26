@@ -9,6 +9,8 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Date;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -44,12 +46,17 @@ public class XxlJobFileAppender {
 		// mk base dir
 		File logPathDir = new File(logBasePath);
         FileTool.createDirectories(logPathDir);
-		logBasePath = logPathDir.getPath();
+		logBasePath = logPathDir.getCanonicalPath();
 
 		// mk glue dir
 		File glueBaseDir = new File(logPathDir, "gluesource");
         FileTool.createDirectories(glueBaseDir);
-		glueSrcPath = glueBaseDir.getPath();
+		glueSrcPath = glueBaseDir.getCanonicalPath();
+
+		// mk callback dir
+		File callbackBaseDir = new File(logPathDir, "callbacklogs");
+        FileTool.createDirectories(callbackBaseDir);
+		callbackLogPath = callbackBaseDir.getCanonicalPath();
 	}
 	public static String getLogPath() {
 		return logBasePath;
@@ -84,6 +91,27 @@ public class XxlJobFileAppender {
                 .concat(".log");
 	}
 
+    public static String resolveLogFilePath(String logFileName) throws IOException {
+        return resolvePathUnderBase(logBasePath, logFileName, "log file");
+    }
+
+    public static String resolveGlueSourceFilePath(String scriptFileName) throws IOException {
+        return resolvePathUnderBase(glueSrcPath, scriptFileName, "glue source file");
+    }
+
+    private static String resolvePathUnderBase(String baseDirectory, String candidatePath, String pathType) throws IOException {
+        if (StringTool.isBlank(candidatePath)) {
+            throw new IOException(pathType + " path is blank.");
+        }
+
+        Path basePath = Paths.get(baseDirectory).toAbsolutePath().normalize();
+        Path resolvedPath = Paths.get(candidatePath).toAbsolutePath().normalize();
+        if (!resolvedPath.startsWith(basePath)) {
+            throw new IOException("Invalid " + pathType + " path: " + candidatePath);
+        }
+        return resolvedPath.toString();
+    }
+
 	/**
 	 * append log
 	 *
@@ -99,7 +127,8 @@ public class XxlJobFileAppender {
 
 		// append log
         try {
-            FileTool.writeLines(logFileName, List.of(appendLog), true);
+            String safeLogFileName = resolveLogFilePath(logFileName);
+            FileTool.writeLines(safeLogFileName, List.of(appendLog), true);
         } catch (IOException e) {
             throw new RuntimeException("XxlJobFileAppender appendLog error, logFileName:"+ logFileName, e);
         }
@@ -118,7 +147,14 @@ public class XxlJobFileAppender {
 		if (StringTool.isBlank(logFileName)) {
             return new LogResult(fromLineNum, 0, "readLog fail, logFile not found", true);
 		}
-		if (!FileTool.exists(logFileName)) {
+        final String safeLogFileName;
+        try {
+            safeLogFileName = resolveLogFilePath(logFileName);
+        } catch (IOException e) {
+            logger.warn("XxlJobFileAppender readLog rejected invalid path, logFileName:{}", logFileName, e);
+            return new LogResult(fromLineNum, 0, "readLog fail, invalid logFileName", true);
+        }
+		if (!FileTool.exists(safeLogFileName)) {
             return new LogResult(fromLineNum, 0, "readLog fail, logFile not exists", true);
 		}
 
@@ -131,7 +167,7 @@ public class XxlJobFileAppender {
 
         // do read
         try {
-            FileTool.readLines(logFileName, new Consumer<String>() {
+            FileTool.readLines(safeLogFileName, new Consumer<String>() {
                 @Override
                 public void accept(String line) {
                     // refresh line num
@@ -153,7 +189,7 @@ public class XxlJobFileAppender {
                 }
             });
         } catch (IOException e) {
-            logger.error("XxlJobFileAppender readLog error, logFileName:{}, fromLineNum:{}", logFileName, fromLineNum, e);
+            logger.error("XxlJobFileAppender readLog error, logFileName:{}, fromLineNum:{}", safeLogFileName, fromLineNum, e);
         }
 
         // result
